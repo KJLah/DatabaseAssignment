@@ -82,10 +82,26 @@ The app reads these environment variables (defaults in brackets):
 
 Usually you only need to set your password:
 
-```bash
-export PGPASSWORD=your_postgres_password      # macOS / Linux
-set PGPASSWORD=your_postgres_password         # Windows cmd
+Windows PowerShell:
+
+```powershell
+$env:PGPASSWORD = "your_postgres_password"
 ```
+
+Windows Command Prompt:
+
+```cmd
+set "PGPASSWORD=your_postgres_password"
+```
+
+macOS/Linux:
+
+```sh
+export PGPASSWORD='your_postgres_password'
+```
+
+Replace the example password with your PostgreSQL password. Run the
+application from the same terminal where you set this variable.
 
 ## Running the application
 
