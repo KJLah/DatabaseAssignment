@@ -6,6 +6,8 @@
 
 BEGIN;
 
+DROP TABLE IF EXISTS students;
+
 CREATE TABLE students (
     student_id      SERIAL PRIMARY KEY,
     first_name      TEXT NOT NULL,
