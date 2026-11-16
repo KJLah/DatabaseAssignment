@@ -44,6 +44,7 @@ def getAllStudents():
     print(f"({len(rows)} students)")
     return rows
 
+
 def addStudent(first_name, last_name, email, enrollment_date):
     """Insert a student and return the generated ID."""
     first_name = required(first_name)
