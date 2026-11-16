@@ -20,8 +20,8 @@ performs CRUD (Create, Read, Update, Delete) operations on a `students` table.
 ```
 ## Requirements
 
-- PostgreSQL (with pgAdmin)
 - Python 3.8 or newer
+- PostgreSQL
 - pgAdmin
 - A running PostgreSQL server
 
