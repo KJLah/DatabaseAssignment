@@ -8,14 +8,16 @@ performs CRUD (Create, Read, Update, Delete) operations on a `students` table.
 ## Repository structure
 
 ```
+```text
 .
-├── db/
-│   └── schema.sql          # creates the students table and inserts the initial data
-├── app/
-│   ├── students_app.py     # the application (all four CRUD functions + menu)
-│   └── requirements.txt    # Python dependency (psycopg2)
+├── application/
+│   ├── students_application.py
+│   └── requirements.txt
+├── database/
+│   └── schema.sql
+├── .gitignore
 └── README.md
-
+```
 ## Requirements
 
 - PostgreSQL (with pgAdmin)
