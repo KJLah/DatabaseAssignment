@@ -60,30 +60,55 @@ Run the setup script once in a fresh database. It does not replace an
 existing students table. If rerunning it causes an aborted transaction,
 execute `ROLLBACK;` before running other queries.
 
-## 3. Install Dependencies
+### 3. Install the Python dependency
 
-From the project root, create a virtual environment:
-
-```sh
-python -m venv .venv
+```bash
+pip install -r app/requirements.txt
 ```
 
-Activate it on Windows PowerShell:
+### 4. Set your connection settings
 
-```powershell
-.venv\Scripts\Activate.ps1
+The app reads these environment variables (defaults in brackets):
+
+| Variable     | Default       |
+|--------------|---------------|
+| `PGHOST`     | `localhost`   |
+| `PGPORT`     | `5432`        |
+| `PGDATABASE` | `students_db` |
+| `PGUSER`     | `postgres`    |
+| `PGPASSWORD` | *(empty)*     |
+
+Usually you only need to set your password:
+
+```bash
+export PGPASSWORD=your_postgres_password      # macOS / Linux
+set PGPASSWORD=your_postgres_password         # Windows cmd
 ```
 
-Or on macOS/Linux:
+## Running the application
 
-```sh
-source .venv/bin/activate
+```bash
+python3 app/students_app.py
 ```
 
-Install the PostgreSQL driver:
+A menu appears:
 
-```sh
-python -m pip install -r application/requirements.txt
+```
+1. Show all students
+2. Add a student
+3. Update a student's email
+4. Delete a student
+0. Exit
 ```
 
-Python is interpreted, so no compilation step is required.
+## Functions
+
+| Function | What it does |
+|----------|--------------|
+| `getAllStudents()` | Runs `SELECT` on `students` and prints every row, ordered by id. |
+| `addStudent(first_name, last_name, email, enrollment_date)` | Runs `INSERT` and prints the new `student_id`. Reports a duplicate email or invalid date instead of crashing. |
+| `updateStudentEmail(student_id, new_email)` | Runs `UPDATE` on the given student. Reports if the id doesn't exist or the email is already taken. |
+| `deleteStudent(student_id)` | Runs `DELETE` on the given student. Reports if the id doesn't exist. |
+
+All queries use parameterized statements (`%s`) to prevent SQL injection, and
+each change is committed so it is visible in pgAdmin right away.
