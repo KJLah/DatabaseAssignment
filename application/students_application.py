@@ -94,3 +94,43 @@ def addStudent(first_name, last_name, email, enrollment_date):
     finally:
         conn.close()
     return None
+
+def updateStudentEmail(student_id, new_email):
+    """UPDATE: change the email of the student with the given student_id."""
+    sql = "UPDATE students SET email = %s WHERE student_id = %s;"
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, (new_email, student_id))
+            updated = cur.rowcount  # number of rows changed
+        conn.commit()
+        if updated:
+            print(f"Updated email of student {student_id} to {new_email}.")
+        else:
+            print(f"No student found with id {student_id}.")
+        return updated > 0
+    except errors.UniqueViolation:
+        conn.rollback()
+        print(f"Error: the email '{new_email}' is already used by another student.")
+    finally:
+        conn.close()
+    return False
+
+
+def deleteStudent(student_id):
+    """DELETE: remove the student with the given student_id."""
+    sql = "DELETE FROM students WHERE student_id = %s;"
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, (student_id,))
+            deleted = cur.rowcount
+        conn.commit()
+    finally:
+        conn.close()
+
+    if deleted:
+        print(f"Deleted student {student_id}.")
+    else:
+        print(f"No student found with id {student_id}.")
+    return deleted > 0
