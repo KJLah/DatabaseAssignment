@@ -65,7 +65,7 @@ execute `ROLLBACK;` before running other queries.
 ### 3. Install the Python dependency
 
 ```bash
-pip install -r app/requirements.txt
+python -m pip install -r application/requirements.txt
 ```
 
 ### 4. Set your connection settings
