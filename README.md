@@ -7,7 +7,6 @@ performs CRUD (Create, Read, Update, Delete) operations on a `students` table.
 
 ## Repository structure
 
-```
 ```text
 .
 ├── application/
