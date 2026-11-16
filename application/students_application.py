@@ -116,7 +116,6 @@ def updateStudentEmail(student_id, new_email):
         conn.close()
     return False
 
-
 def deleteStudent(student_id):
     """DELETE: remove the student with the given student_id."""
     sql = "DELETE FROM students WHERE student_id = %s;"
@@ -134,3 +133,58 @@ def deleteStudent(student_id):
     else:
         print(f"No student found with id {student_id}.")
     return deleted > 0
+
+def read_int(prompt):
+    """Keep asking until the user types a whole number."""
+    while True:
+        value = input(prompt).strip()
+        if value.isdigit():
+            return int(value)
+        print("Please enter a whole number.")
+
+def main():
+    """Show a menu and call the chosen CRUD function in a loop."""
+    # Check the connection once at start-up so a bad password or a
+    # missing database is reported clearly instead of as a stack trace.
+    try:
+        get_connection().close()
+    except psycopg2.OperationalError as e:
+        print("Could not connect to the database. Check your settings.\n", e)
+        sys.exit(1)
+
+    menu = """
+==== Students Database ====
+1. Show all students
+2. Add a student
+3. Update a student's email
+4. Delete a student
+0. Exit
+"""
+    while True:
+        print(menu)
+        choice = input("Choose an option: ").strip()
+
+        if choice == "1":
+            getAllStudents()
+        elif choice == "2":
+            first = input("First name: ").strip()
+            last = input("Last name: ").strip()
+            email = input("Email: ").strip()
+            date = input("Enrollment date (YYYY-MM-DD, blank for none): ").strip()
+            addStudent(first, last, email, date)
+        elif choice == "3":
+            sid = read_int("Student id: ")
+            new_email = input("New email: ").strip()
+            updateStudentEmail(sid, new_email)
+        elif choice == "4":
+            sid = read_int("Student id: ")
+            deleteStudent(sid)
+        elif choice == "0":
+            print("Goodbye.")
+            break
+        else:
+            print("Invalid option, try again.")
+
+
+if __name__ == "__main__":
+    main()
