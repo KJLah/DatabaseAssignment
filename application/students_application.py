@@ -1,189 +1,147 @@
-"""
-students_app.py file
-
-A small command-line application that connects to a PostgreSQL database
-and performs CRUD (Create, Read, Update, Delete) operations on the
-"students" table.
-
-Connection settings are read from environment variables so no password
-is hard-coded in the source (check README.md).
-"""
+"""A simple PostgreSQL application for managing students."""
 
 import os
-import sys
+from contextlib import closing
+from datetime import date
 
 import psycopg2
-from psycopg2 import errors
 
 
-# ------------------------------------------------------------
-# Database connection
-# ------------------------------------------------------------
-
-# Connection parameters. Each one can be overridden with an environment
-# variable; otherwise the default (a local PostgreSQL install) is used.
-DB_CONFIG = {
-    "host": os.getenv("PGHOST", "localhost"),
-    "port": os.getenv("PGPORT", "5432"),
-    "dbname": os.getenv("PGDATABASE", "students_db"),
-    "user": os.getenv("PGUSER", "postgres"),
-    "password": os.getenv("PGPASSWORD", ""),
-}
-
-
-def get_connection():
-    """Open and return a new connection to the PostgreSQL database."""
-    return psycopg2.connect(**DB_CONFIG)
+def run_query(sql, values=()):
+    """Run SQL safely, commit or roll back, and close the connection."""
+    with closing(psycopg2.connect(
+        host=os.getenv("PGHOST", "localhost"),
+        port=os.getenv("PGPORT", "5432"),
+        dbname=os.getenv("PGDATABASE", "students_db"),
+        user=os.getenv("PGUSER", "postgres"),
+        password=os.getenv("PGPASSWORD", ""),
+        connect_timeout=5,
+    )) as conn:
+        # This context commits on success and rolls back on error.
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(sql, values)
+                return cursor.fetchall()
 
 
-# ------------------------------------------------------------
-# CRUD functions
-# ------------------------------------------------------------
+def required(value):
+    """Remove surrounding spaces and reject empty names or emails."""
+    if value is None or not value.strip():
+        raise ValueError("Names and email cannot be blank.")
+    return value.strip()
+
 
 def getAllStudents():
-    """READ: retrieve every row in the students table and print it."""
-    sql = """
-        SELECT student_id, first_name, last_name, email, enrollment_date
-        FROM students
-        ORDER BY student_id;
-    """
-    # "with" closes the cursor automatically; the connection is closed
-    # in the finally block.
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql)
-            rows = cur.fetchall()
-    finally:
-        conn.close()
+    """Retrieve and display every student."""
+    rows = run_query(
+        "SELECT student_id, first_name, last_name, email, enrollment_date "
+        "FROM students ORDER BY student_id"
+    )
 
-    # Print the results as a simple table.
-    print(f"\n{'ID':<4} {'First':<12} {'Last':<12} {'Email':<28} {'Enrolled'}")
-    print("-" * 70)
-    for student_id, first, last, email, enrolled in rows:
-        print(f"{student_id:<4} {first:<12} {last:<12} {email:<28} {enrolled or ''}")
-    print(f"({len(rows)} student(s))\n")
+    print("ID | First name | Last name | Email | Enrollment date")
+    for row in rows:
+        print(" | ".join("" if value is None else str(value) for value in row))
+    print(f"({len(rows)} students)")
     return rows
 
 def addStudent(first_name, last_name, email, enrollment_date):
-    """CREATE: insert a new student and return the generated student_id."""
-    # Parameters (%s) are passed separately so psycopg2 escapes them,
-    # which prevents SQL injection.
-    sql = """
-        INSERT INTO students (first_name, last_name, email, enrollment_date)
-        VALUES (%s, %s, %s, %s)
-        RETURNING student_id;
-    """
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, (first_name, last_name, email, enrollment_date or None))
-            new_id = cur.fetchone()[0]
-        conn.commit()  # make the insert permanent
-        print(f"Added student {first_name} {last_name} with id {new_id}.")
-        return new_id
-    except errors.UniqueViolation:
-        conn.rollback()
-        print(f"Error: the email '{email}' is already used by another student.")
-    except (errors.InvalidDatetimeFormat, errors.DatetimeFieldOverflow):
-        conn.rollback()
-        print(f"Error: '{enrollment_date}' is not a valid date (use YYYY-MM-DD).")
-    except errors.NotNullViolation:
-        conn.rollback()
-        print("Error: first name, last name and email are all required.")
-    finally:
-        conn.close()
-    return None
+    """Insert a student and return the generated ID."""
+    first_name = required(first_name)
+    last_name = required(last_name)
+    email = required(email)
+
+    # A blank enrollment date becomes SQL NULL.
+    if isinstance(enrollment_date, str):
+        enrollment_date = enrollment_date.strip()
+        enrollment_date = (
+            date.fromisoformat(enrollment_date) if enrollment_date else None
+        )
+
+    rows = run_query(
+        "INSERT INTO students (first_name, last_name, email, enrollment_date) "
+        "VALUES (%s, %s, %s, %s) RETURNING student_id",
+        (first_name, last_name, email, enrollment_date),
+    )
+
+    student_id = rows[0][0]
+    print(f"Added student with ID {student_id}.")
+    return student_id
+
 
 def updateStudentEmail(student_id, new_email):
-    """UPDATE: change the email of the student with the given student_id."""
-    sql = "UPDATE students SET email = %s WHERE student_id = %s;"
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, (new_email, student_id))
-            updated = cur.rowcount  # number of rows changed
-        conn.commit()
-        if updated:
-            print(f"Updated email of student {student_id} to {new_email}.")
-        else:
-            print(f"No student found with id {student_id}.")
-        return updated > 0
-    except errors.UniqueViolation:
-        conn.rollback()
-        print(f"Error: the email '{new_email}' is already used by another student.")
-    finally:
-        conn.close()
-    return False
+    """Update a student's email and report whether the ID exists."""
+    rows = run_query(
+        "UPDATE students SET email = %s "
+        "WHERE student_id = %s RETURNING student_id",
+        (required(new_email), student_id),
+    )
+
+    print("Email updated." if rows else "Student not found.")
+    return bool(rows)
+
 
 def deleteStudent(student_id):
-    """DELETE: remove the student with the given student_id."""
-    sql = "DELETE FROM students WHERE student_id = %s;"
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(sql, (student_id,))
-            deleted = cur.rowcount
-        conn.commit()
-    finally:
-        conn.close()
+    """Delete a student and report whether the ID exists."""
+    rows = run_query(
+        "DELETE FROM students WHERE student_id = %s RETURNING student_id",
+        (student_id,),
+    )
 
-    if deleted:
-        print(f"Deleted student {student_id}.")
-    else:
-        print(f"No student found with id {student_id}.")
-    return deleted > 0
+    print("Student deleted." if rows else "Student not found.")
+    return bool(rows)
 
-def read_int(prompt):
-    """Keep asking until the user types a whole number."""
-    while True:
-        value = input(prompt).strip()
-        if value.isdigit():
-            return int(value)
-        print("Please enter a whole number.")
+
+def read_id():
+    """Read a positive student ID; invalid input is handled by the menu."""
+    student_id = int(input("Student ID: "))
+    if student_id < 1:
+        raise ValueError("Student ID must be positive.")
+    return student_id
+
 
 def main():
-    """Show a menu and call the chosen CRUD function in a loop."""
-    # Check the connection once at start-up so a bad password or a
-    # missing database is reported clearly instead of as a stack trace.
-    try:
-        get_connection().close()
-    except psycopg2.OperationalError as e:
-        print("Could not connect to the database. Check your settings.\n", e)
-        sys.exit(1)
-
-    menu = """
-==== Students Database ====
-1. Show all students
-2. Add a student
-3. Update a student's email
-4. Delete a student
-0. Exit
-"""
+    """Display the menu and handle input or database errors."""
     while True:
-        print(menu)
-        choice = input("Choose an option: ").strip()
+        print(
+            "\n1. Show students"
+            "\n2. Add student"
+            "\n3. Update email"
+            "\n4. Delete student"
+            "\n0. Exit"
+        )
 
-        if choice == "1":
-            getAllStudents()
-        elif choice == "2":
-            first = input("First name: ").strip()
-            last = input("Last name: ").strip()
-            email = input("Email: ").strip()
-            date = input("Enrollment date (YYYY-MM-DD, blank for none): ").strip()
-            addStudent(first, last, email, date)
-        elif choice == "3":
-            sid = read_int("Student id: ")
-            new_email = input("New email: ").strip()
-            updateStudentEmail(sid, new_email)
-        elif choice == "4":
-            sid = read_int("Student id: ")
-            deleteStudent(sid)
-        elif choice == "0":
-            print("Goodbye.")
-            break
-        else:
-            print("Invalid option, try again.")
+        try:
+            choice = input("Choose an option: ").strip()
+
+            if choice == "0":
+                return
+            elif choice == "1":
+                getAllStudents()
+            elif choice == "2":
+                addStudent(
+                    input("First name: "),
+                    input("Last name: "),
+                    input("Email: "),
+                    input("Enrollment date (YYYY-MM-DD, blank for none): "),
+                )
+            elif choice == "3":
+                updateStudentEmail(read_id(), input("New email: "))
+            elif choice == "4":
+                deleteStudent(read_id())
+            else:
+                print("Choose an option from 0 to 4.")
+
+        except ValueError as error:
+            print(f"Invalid input: {error}")
+        except psycopg2.errors.UniqueViolation:
+            print("That email is already used by another student.")
+        except psycopg2.OperationalError:
+            print("Cannot connect. Check PostgreSQL and your PG settings.")
+        except psycopg2.Error:
+            print("Database error. Check that database/schema.sql has been run.")
+        except (EOFError, KeyboardInterrupt):
+            print("\nGoodbye.")
+            return
 
 
 if __name__ == "__main__":
