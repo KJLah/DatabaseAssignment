@@ -106,7 +106,7 @@ application from the same terminal where you set this variable.
 ## Running the application
 
 ```bash
-python3 app/students_app.py
+python application/students_application.py
 ```
 
 A menu appears:
